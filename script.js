@@ -151,18 +151,27 @@ const planeMaterial = new THREE.MeshStandardMaterial({
 const planeMesh = new THREE.Mesh(planeGeometry, planeMaterial);
 surfaceScene.add(planeMesh);
 
-// 3D Boxes Instanced Mesh
-const boxGeometry = new THREE.BoxGeometry(0.15, 0.15, 0.15);
+// 3D Boxes Instanced Mesh — Sparse Grid (every 3rd vertex to avoid clutter)
+const cols = 71; // planeGeometry width segments + 1
+const boxIndices = []; // stores which vertex indices get a box
+for (let i = 0; i < positionAttribute.count; i++) {
+  const col = i % cols;
+  const row = Math.floor(i / cols);
+  if (col % 3 === 0 && row % 3 === 0) {
+    boxIndices.push(i);
+  }
+}
+
+const boxGeometry = new THREE.BoxGeometry(0.28, 0.28, 0.28);
 const boxMaterial = new THREE.MeshStandardMaterial({
-  color: 0x8b5cf6, // Purple
-  emissive: 0x38bdf8, // Cyan glow
-  emissiveIntensity: 0.2,
-  roughness: 0.1,
-  metalness: 0.8
+  color: 0x8b5cf6,
+  emissive: 0x38bdf8,
+  emissiveIntensity: 0.3,
+  roughness: 0.15,
+  metalness: 0.9
 });
-const vertexCount = positionAttribute.count;
-const boxInstancedMesh = new THREE.InstancedMesh(boxGeometry, boxMaterial, vertexCount);
-boxInstancedMesh.frustumCulled = false; // Prevent culling issues with instance updates
+const boxInstancedMesh = new THREE.InstancedMesh(boxGeometry, boxMaterial, boxIndices.length);
+boxInstancedMesh.frustumCulled = false;
 surfaceScene.add(boxInstancedMesh);
 
 const dummy = new THREE.Object3D();
@@ -228,26 +237,48 @@ function animateSurface() {
     newZ += hoverInfluence;
     
     positionAttribute.setZ(i, newZ);
-
-    // 3. Update Box Instances
-    // Make the box pop up higher and scale up on hover
-    const boxZ = newZ + hoverInfluence * 0.5; // Extra lift for boxes
-    const scale = 1 + hoverInfluence * 1.2; // Scale up on hover
-    
-    dummy.position.set(x, y, boxZ);
-    
-    // Add some rotation based on wave and hover for a dynamic feel
-    dummy.rotation.set(
-      waveX * 0.5, 
-      waveY * 0.5, 
-      hoverInfluence * Math.PI * 0.25
-    );
-    dummy.scale.set(scale, scale, scale);
-    dummy.updateMatrix();
-    boxInstancedMesh.setMatrixAt(i, dummy.matrix);
   }
   
   positionAttribute.needsUpdate = true;
+
+  // 3. Update Box Instances (sparse grid, only pop up near cursor)
+  for (let b = 0; b < boxIndices.length; b++) {
+    const vi = boxIndices[b]; // vertex index
+    const x = positionAttribute.getX(vi);
+    const y = positionAttribute.getY(vi);
+    const z = positionAttribute.getZ(vi);
+
+    // Distance from hover point
+    const dx = x - hoverLight.position.x;
+    const dy = y - hoverLight.position.y;
+    const distSq = dx * dx + dy * dy;
+
+    // Tight Gaussian — boxes only visible within ~radius 3
+    const influence = Math.exp(-distSq / 2.5);
+
+    if (influence > 0.05) {
+      // Pop up: scale from 0 to full based on proximity
+      const s = influence * 1.8;
+      const popZ = z + influence * 1.5; // lift above the surface
+
+      dummy.position.set(x, y, popZ);
+      dummy.rotation.set(
+        elapsedTime * 0.5,
+        elapsedTime * 0.3,
+        influence * Math.PI * 0.5
+      );
+      dummy.scale.set(s, s, s);
+    } else {
+      // Hide: scale to zero
+      dummy.position.set(x, y, z);
+      dummy.rotation.set(0, 0, 0);
+      dummy.scale.set(0, 0, 0);
+    }
+    
+    dummy.updateMatrix();
+    boxInstancedMesh.setMatrixAt(b, dummy.matrix);
+  }
+  
   boxInstancedMesh.instanceMatrix.needsUpdate = true;
   
   surfaceRenderer.render(surfaceScene, surfaceCamera);
