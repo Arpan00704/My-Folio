@@ -145,11 +145,27 @@ const planeMaterial = new THREE.MeshStandardMaterial({
   metalness: 0.8,
   wireframe: true,
   transparent: true,
-  opacity: 0.8
+  opacity: 0.3 // Reduced opacity so boxes stand out
 });
 
 const planeMesh = new THREE.Mesh(planeGeometry, planeMaterial);
 surfaceScene.add(planeMesh);
+
+// 3D Boxes Instanced Mesh
+const boxGeometry = new THREE.BoxGeometry(0.15, 0.15, 0.15);
+const boxMaterial = new THREE.MeshStandardMaterial({
+  color: 0x8b5cf6, // Purple
+  emissive: 0x38bdf8, // Cyan glow
+  emissiveIntensity: 0.2,
+  roughness: 0.1,
+  metalness: 0.8
+});
+const vertexCount = positionAttribute.count;
+const boxInstancedMesh = new THREE.InstancedMesh(boxGeometry, boxMaterial, vertexCount);
+boxInstancedMesh.frustumCulled = false; // Prevent culling issues with instance updates
+surfaceScene.add(boxInstancedMesh);
+
+const dummy = new THREE.Object3D();
 
 // Lighting
 const surfaceAmbient = new THREE.AmbientLight(0xffffff, 0.2);
@@ -192,7 +208,7 @@ function animateSurface() {
   hoverLight.position.x += (targetIntersect.x - hoverLight.position.x) * 0.1;
   hoverLight.position.y += (targetIntersect.y - hoverLight.position.y) * 0.1;
 
-  // Animate the vertices
+  // Animate the vertices and boxes
   for (let i = 0; i < positionAttribute.count; i++) {
     const x = positionAttribute.getX(i);
     const y = positionAttribute.getY(i);
@@ -212,9 +228,27 @@ function animateSurface() {
     newZ += hoverInfluence;
     
     positionAttribute.setZ(i, newZ);
+
+    // 3. Update Box Instances
+    // Make the box pop up higher and scale up on hover
+    const boxZ = newZ + hoverInfluence * 0.5; // Extra lift for boxes
+    const scale = 1 + hoverInfluence * 1.2; // Scale up on hover
+    
+    dummy.position.set(x, y, boxZ);
+    
+    // Add some rotation based on wave and hover for a dynamic feel
+    dummy.rotation.set(
+      waveX * 0.5, 
+      waveY * 0.5, 
+      hoverInfluence * Math.PI * 0.25
+    );
+    dummy.scale.set(scale, scale, scale);
+    dummy.updateMatrix();
+    boxInstancedMesh.setMatrixAt(i, dummy.matrix);
   }
   
   positionAttribute.needsUpdate = true;
+  boxInstancedMesh.instanceMatrix.needsUpdate = true;
   
   surfaceRenderer.render(surfaceScene, surfaceCamera);
 }
