@@ -105,14 +105,138 @@ tl.to(coreMaterial.color, { r: 0.98, g: 0.22, b: 0.57 }, 0.5) // Change core col
   .to(shell.rotation, { x: Math.PI * 1.5, y: Math.PI, ease: "none" }, 0.5) // Spin the shell intensely
   .to(camera.position, { z: 7.5, ease: "power2.inOut" }, 0.5); // Move camera closer
 
-// 5. Handle Window Resize
+// --------------------------------------------------------
+// 6. Interactive 3D Surface (Part 4)
+// --------------------------------------------------------
+const surfaceCanvas = document.querySelector('#surface-canvas');
+const surfaceContainer = document.querySelector('.surface-canvas-container');
+
+let surfaceWidth = surfaceContainer.clientWidth;
+let surfaceHeight = surfaceContainer.clientHeight;
+
+const surfaceScene = new THREE.Scene();
+
+// Camera
+const surfaceCamera = new THREE.PerspectiveCamera(45, surfaceWidth / surfaceHeight, 0.1, 100);
+surfaceCamera.position.set(0, -6, 8); // Tilted perspective
+surfaceCamera.lookAt(0, 0, 0);
+
+// Renderer
+const surfaceRenderer = new THREE.WebGLRenderer({ canvas: surfaceCanvas, alpha: true, antialias: true });
+surfaceRenderer.setSize(surfaceWidth, surfaceHeight);
+surfaceRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+
+// Plane Mesh Geometry
+// We use a high segment count for smooth wave deformations
+const planeGeometry = new THREE.PlaneGeometry(28, 20, 70, 50);
+
+// Save the original z positions to compute the base sine waves properly
+const positionAttribute = planeGeometry.attributes.position;
+const originalZ = new Float32Array(positionAttribute.count);
+for (let i = 0; i < positionAttribute.count; i++) {
+  originalZ[i] = positionAttribute.getZ(i);
+}
+
+// Plane Material
+const planeMaterial = new THREE.MeshStandardMaterial({
+  color: 0x38bdf8,
+  emissive: 0x1a0b2e,
+  roughness: 0.2,
+  metalness: 0.8,
+  wireframe: true,
+  transparent: true,
+  opacity: 0.8
+});
+
+const planeMesh = new THREE.Mesh(planeGeometry, planeMaterial);
+surfaceScene.add(planeMesh);
+
+// Lighting
+const surfaceAmbient = new THREE.AmbientLight(0xffffff, 0.2);
+surfaceScene.add(surfaceAmbient);
+
+// Interactive Hover Light (Follows mouse)
+const hoverLight = new THREE.PointLight(0x8b5cf6, 3, 10);
+hoverLight.position.set(0, 0, 2);
+surfaceScene.add(hoverLight);
+
+// Raycaster & Mouse setup
+const raycaster = new THREE.Raycaster();
+const mouse = new THREE.Vector2();
+// We'll store the target intersection point
+const targetIntersect = new THREE.Vector3(0, 0, 0);
+
+// Track mouse movement over the container
+surfaceContainer.addEventListener('mousemove', (event) => {
+  const rect = surfaceContainer.getBoundingClientRect();
+  mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+  mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+  
+  raycaster.setFromCamera(mouse, surfaceCamera);
+  const intersects = raycaster.intersectObject(planeMesh);
+  
+  if (intersects.length > 0) {
+    targetIntersect.copy(intersects[0].point);
+  }
+});
+
+// Render Loop for the Surface
+const clock = new THREE.Clock();
+
+function animateSurface() {
+  requestAnimationFrame(animateSurface);
+  
+  const elapsedTime = clock.getElapsedTime();
+  
+  // Smoothly move the hover light towards the target intersection
+  hoverLight.position.x += (targetIntersect.x - hoverLight.position.x) * 0.1;
+  hoverLight.position.y += (targetIntersect.y - hoverLight.position.y) * 0.1;
+
+  // Animate the vertices
+  for (let i = 0; i < positionAttribute.count; i++) {
+    const x = positionAttribute.getX(i);
+    const y = positionAttribute.getY(i);
+    
+    // 1. Base idle wave animation (using sine and cosine)
+    const waveX = Math.sin(x * 0.5 + elapsedTime * 1.5) * 0.3;
+    const waveY = Math.cos(y * 0.5 + elapsedTime * 1.2) * 0.3;
+    let newZ = originalZ[i] + waveX + waveY;
+    
+    // 2. Interactive Gaussian deformation from hover light
+    const dx = x - hoverLight.position.x;
+    const dy = y - hoverLight.position.y;
+    const distanceSq = dx * dx + dy * dy;
+    
+    // Apply a bump that pulls vertices upward towards the mouse
+    const hoverInfluence = Math.exp(-distanceSq / 4.0) * 2.0; 
+    newZ += hoverInfluence;
+    
+    positionAttribute.setZ(i, newZ);
+  }
+  
+  positionAttribute.needsUpdate = true;
+  
+  surfaceRenderer.render(surfaceScene, surfaceCamera);
+}
+animateSurface();
+
+// --------------------------------------------------------
+// 7. Global Window Resize Handler
+// --------------------------------------------------------
 window.addEventListener('resize', () => {
+  // Update First Canvas
   width = container.clientWidth;
   height = container.clientHeight;
-  
   camera.aspect = width / height;
   camera.updateProjectionMatrix();
-  
   renderer.setSize(width, height);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  
+  // Update Second Canvas
+  surfaceWidth = surfaceContainer.clientWidth;
+  surfaceHeight = surfaceContainer.clientHeight;
+  surfaceCamera.aspect = surfaceWidth / surfaceHeight;
+  surfaceCamera.updateProjectionMatrix();
+  surfaceRenderer.setSize(surfaceWidth, surfaceHeight);
+  surfaceRenderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 });
