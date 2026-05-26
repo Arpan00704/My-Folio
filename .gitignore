@@ -1,0 +1,10 @@
+# Vercel and local environment artifacts
+.vercel
+node_modules/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

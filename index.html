@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3D Scroll Reveal | Interactive Portfolio Concept</title>
+  <meta name="description" content="An interactive 3D Scroll Reveal experience built with Three.js, GSAP, and ScrollTrigger. Discover cutting-edge design and animation.">
+  
+  <!-- Premium Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&family=Space+Grotesk:wght@400;700&display=swap" rel="stylesheet">
+  
+  <!-- Main Stylesheet -->
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <main class="scroll-container" id="main-container">
+    <section class="left-text" id="scroll-steps-section">
+      <div class="step" id="step-1">
+        <h2>Part 1: The Outer Shell</h2>
+        <p>This is the exterior protective layer. Notice the geometric structure.</p>
+      </div>
+      <div class="step" id="step-2">
+        <h2>Part 2: The Core Mechanism</h2>
+        <p>As we scroll, the shell fades and expands, revealing the energy core inside.</p>
+      </div>
+      <div class="step" id="step-3">
+        <h2>Part 3: Maximum Output</h2>
+        <p>The core activates. The object rotates to show the final state of the structure.</p>
+      </div>
+    </section>
+
+    <section class="right-canvas" id="canvas-section">
+      <canvas id="webgl-canvas" aria-label="Interactive 3D shape reveal animation"></canvas>
+    </section>
+  </main>
+
+  <!-- External Libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js" defer></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/ScrollTrigger.min.js" defer></script>
+  
+  <!-- App Logic -->
+  <script src="script.js" defer></script>
+</body>
+</html>
